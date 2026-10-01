@@ -1,0 +1,32 @@
+[Unit]
+Description=Cisco 7941 idle screen (weather + CBR rates + converter)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/phone-idle/idle.py
+# Replace every placeholder below with your own values before installing.
+Environment=BIND=0.0.0.0
+Environment=PORT=8088
+Environment=BASE_URL=http://<YOUR_SERVER_LAN_IP>:8088
+Environment=CITY=<Your City>
+Environment=CITY_LATIN=<Your City, Latin spelling>
+Environment=LAT=<latitude>
+Environment=LON=<longitude>
+Environment=TZ_NAME=<Area/City, e.g. Europe/Moscow>
+Environment=CURRENCIES=USD,EUR,CNY
+Environment=MET_NO_USER_AGENT=your-project-name/1.0 (you@example.com)
+# Optional: status of a second host, shown on the /status screen.
+# Leave unset to skip that section.
+#Environment=UKNOW_HOST=<remote host IP>
+#Environment=UKNOW_PORT=8097
+#Environment=UKNOW_TOKEN=<a long random token, shared with that host's status endpoint>
+DynamicUser=yes
+ProtectSystem=strict
+ProtectHome=yes
+NoNewPrivileges=yes
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

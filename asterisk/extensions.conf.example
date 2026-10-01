@@ -1,0 +1,14 @@
+; Minimal dialplan.
+[general]
+static=yes
+writeprotect=yes
+
+[phones]
+; 600 -- echo test (check audio)
+exten => 600,1,Answer()
+ same => n,Playback(demo-echotest)
+ same => n,Echo()
+ same => n,Hangup()
+; 100 -- the phone itself (so e.g. speed-dialing your own extension rings it)
+exten => 100,1,Dial(PJSIP/100,30)
+ same => n,Hangup()

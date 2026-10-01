@@ -1,0 +1,37 @@
+; Minimal PJSIP config for a single Cisco 7941 (SIP firmware, SEP<MAC>).
+; Replace every placeholder in <angle brackets> before use.
+
+[global]
+type=global
+default_realm=<YOUR_SERVER_LAN_IP>
+
+[transport-udp]
+type=transport
+protocol=udp
+bind=<YOUR_SERVER_LAN_IP>:5060
+
+[100]
+type=endpoint
+context=phones
+disallow=all
+allow=ulaw,alaw
+aors=100
+callerid="Cisco 7941" <100>
+direct_media=no
+rtp_symmetric=yes
+force_rport=no
+rewrite_contact=no
+auth=100-auth
+
+[100-auth]
+type=auth
+auth_type=userpass
+username=100
+realm=<YOUR_SERVER_LAN_IP>
+password=<A_STRONG_RANDOM_PASSWORD>
+
+[100]
+type=aor
+max_contacts=1
+remove_existing=yes
+qualify_frequency=0

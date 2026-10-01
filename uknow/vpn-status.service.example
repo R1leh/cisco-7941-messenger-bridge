@@ -1,0 +1,17 @@
+[Unit]
+Description=VPN status endpoint for phone-idle's /status screen
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/vpn-status/vpn-status.py
+Environment=STATUS_PORT=8097
+Environment=WG_INTERFACE=wg0
+# Generate with: openssl rand -hex 32
+Environment=STATUS_TOKEN=<REPLACE_WITH_A_LONG_RANDOM_TOKEN>
+Restart=on-failure
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target

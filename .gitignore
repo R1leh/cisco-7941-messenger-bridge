@@ -1,0 +1,19 @@
+# Real, filled-in configs (contain secrets / personal data) -- never commit these
+SEP*.cnf.xml
+!tftp/SEP_TEMPLATE.cnf.xml
+pjsip.conf
+extensions.conf
+.env
+*.env
+
+# Cisco firmware binaries -- copyrighted, not redistributable, not part of this repo
+*.sbn
+*.loads
+
+# Captures / local scratch
+*.pcap
+*.pcap.gz
+*.bak
+*.bak-*
+__pycache__/
+*.pyc
