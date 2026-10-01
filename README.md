@@ -26,6 +26,14 @@ Python HTTP service.
     plus (optionally) status from any number of other servers you plug in
   - About the project
 
+| Idle screen | Services menu |
+|---|---|
+| ![Idle screen](docs/images/idle-screen.jpg) | ![Services menu](docs/images/services-menu.jpg) |
+
+| Currency rates | Currency converter |
+|---|---|
+| ![Currency rates](docs/images/currency-rates.jpg) | ![Currency converter](docs/images/currency-converter.jpg) |
+
 ## How it works
 
 ```
@@ -152,6 +160,14 @@ SIP на [Asterisk](https://www.asterisk.org/) и получает экраны 
   - Server status -- аптайм / статус SIP-регистрации локального сервера,
     а также (опционально) статус любого количества других серверов
   - About the project
+
+| Экран ожидания | Меню Services |
+|---|---|
+| ![Экран ожидания](docs/images/idle-screen.jpg) | ![Меню Services](docs/images/services-menu.jpg) |
+
+| Курсы валют | Конвертер валют |
+|---|---|
+| ![Курсы валют](docs/images/currency-rates.jpg) | ![Конвертер валют](docs/images/currency-converter.jpg) |
 
 ### Как это работает
 
