@@ -1,5 +1,7 @@
 # cisco-7941-messenger-bridge
 
+[Читать на русском](#русский)
+
 Turns an old Cisco 7941 IP phone into a little desk dashboard: idle-screen
 weather and exchange rates, plus a "Services" menu (hard key on the phone)
 with a detailed forecast, a currency rates list, a currency converter you
@@ -121,3 +123,133 @@ to be committed; `.gitignore` already excludes the usual filenames.
 ## License
 
 MIT -- see [LICENSE](LICENSE).
+
+---
+
+## Русский
+
+Превращает старый IP-телефон Cisco 7941 в маленькую настольную панель: на
+экране ожидания -- погода и курсы валют, а в меню "Services" (аппаратная
+кнопка на телефоне) -- подробный прогноз погоды, список курсов валют,
+конвертер валют (сумма вводится с клавиатуры телефона) и базовый статус
+инфраструктуры.
+
+Работает полностью на собственном SIP-сервере -- без облачных сервисов,
+без лицензии CUCM, без аккаунта Cisco. Телефон просто регистрируется по
+SIP на [Asterisk](https://www.asterisk.org/) и получает экраны в
+собственном push-XML формате Cisco (`CiscoIPPhoneText` / `CiscoIPPhoneMenu`
+/ `CiscoIPPhoneInput`) от небольшого HTTP-сервиса на Python.
+
+### Что видно на экране телефона
+
+- **Экран ожидания** (всегда включён, обновляется раз в минуту): время/дата,
+  текущая погода, пара курсов валют.
+- **Меню Services** (аппаратная кнопка Services):
+  - Weather detail / forecast -- текущая погода + прогноз на несколько дней
+  - Currency rates (list) -- расширенный список курсов ЦБ РФ
+  - Currency converter -- выбор направления (например RUB -> USD), ввод
+    суммы с клавиатуры, результат конвертации
+  - Server status -- аптайм / статус SIP-регистрации локального сервера,
+    а также (опционально) статус любого количества других серверов
+  - About the project
+
+### Как это работает
+
+```
+Cisco 7941  --TFTP-->  загрузочный конфиг (SEP<mac>.cnf.xml)  --сообщает телефону--> где регистрироваться (SIP) и куда указывают idleURL/servicesURL
+
+Cisco 7941  --SIP----->  Asterisk (только регистрация, функции звонков не нужны)
+
+Cisco 7941  --HTTP GET-->  phone-idle/idle.py  --формирует-->  CiscoIPPhoneText / Menu / Input XML
+                               |
+                               +--> api.met.no (погода)
+                               +--> cbr.ru (курсы валют)
+                               +--> локальный файл статуса Asterisk (пишет astatus.py)
+                               +--> опционально: /status-эндпоинты любого числа
+                                    других серверов (remote-status/status-agent.py)
+```
+
+### Известные ограничения (проверено на конкретном железе/прошивке)
+
+- Проверено на Cisco 7941G с SIP-прошивкой `SIP41.8-5-4S` в режиме не-CUCM
+  ("USECALLMANAGER"). Другие модели 79xx/прошивки могут вести себя иначе.
+- Все push-XML экраны (`CiscoIPPhoneText`/`Menu`/`Input`) на этой прошивке
+  парсятся **только как ISO-8859-1 (Latin-1)** -- нет поддержки нелатинского
+  текста независимо от кодировки, указанной в HTTP-ответе. Весь текст на
+  экранах должен оставаться ASCII/латиницей.
+- `CiscoIPPhoneImage` (экраны-картинки) на этой прошивке **не работает**:
+  телефон бесконечно висит на "Requesting...", хотя сервер отвечает быстро
+  и корректным, правильного размера payload'ом. Поэтому резервного варианта
+  через картинку здесь не реализовано.
+
+### Структура репозитория
+
+```
+phone-idle/
+  idle.py                         HTTP-сервис, с которым общается телефон
+  astatus.py                      root-демон: опрашивает Asterisk, пишет
+                                   файл статуса, который idle.py читает
+                                   без привилегий
+  phone-idle.service.example      шаблон systemd-юнита для idle.py
+  phone-astatus.service.example   шаблон systemd-юнита для astatus.py
+remote-status/
+  status-agent.py                  опционально, универсально: небольшой
+                                    статус-эндпойнт для ЛЮБОГО сервера
+                                    (VPN, NAS, другой SIP-сервер и т.д.) --
+                                    выполняет заданный список shell-команд
+                                    и отдаёт их вывод построчно
+  status-agent.service.example     шаблон systemd-юнита для него
+asterisk/
+  pjsip.conf.example              минимальный конфиг PJSIP для одного телефона
+  extensions.conf.example         минимальный дialplan
+tftp/
+  SEP_TEMPLATE.cnf.xml            шаблон TFTP-загрузочного конфига телефона
+```
+
+В каждом `*.example` / `*_TEMPLATE.*` файле есть значения `{{PLACEHOLDER}}`
+или `<PLACEHOLDER>`, которые нужно заполнить своими данными -- см. "Установка"
+ниже. Реальные, заполненные конфиги (с настоящим SIP-паролем, IP, MAC) в
+репозиторий коммитить не нужно -- `.gitignore` уже исключает типичные имена
+таких файлов.
+
+### Установка
+
+1. **Прошивка**: в проект не включены файлы прошивки Cisco (`*.sbn`,
+   `*.loads`) -- это проприетарные бинарники Cisco. Получите свою SIP-прошивку
+   для своей модели телефона и положите её в корень TFTP рядом с загрузочным
+   конфигом.
+2. **Asterisk**: скопируйте `asterisk/pjsip.conf.example` и
+   `asterisk/extensions.conf.example` в конфиг Asterisk, заполните
+   плейсхолдеры (IP сервера, сильный случайный SIP-пароль) и выполните
+   `asterisk -rx "core reload"`.
+3. **TFTP-конфиг**: скопируйте `tftp/SEP_TEMPLATE.cnf.xml` в
+   `SEP<ВАШ_MAC_ТЕЛЕФОНА>.cnf.xml` (MAC заглавными буквами, без разделителей)
+   в корень TFTP, заполните плейсхолдеры (должны совпадать с тем, что
+   указано в `pjsip.conf`). Настройте DHCP-сервер так, чтобы телефон находил
+   TFTP-сервер при загрузке (опция 66 или аналог).
+4. **Сервис phone-idle**:
+   - Кроме стандартной библиотеки Python ничего ставить не нужно.
+   - Скопируйте `phone-idle/idle.py` и `phone-idle/astatus.py`, например, в
+     `/opt/phone-idle/` на своём SIP-сервере.
+   - Скопируйте `phone-idle.service.example` и `phone-astatus.service.example`
+     в `/etc/systemd/system/`, уберите суффикс `.example`, заполните
+     переменные окружения (минимум `BASE_URL`, `CITY*`, `LAT`/`LON`,
+     `TZ_NAME`, `MET_NO_USER_AGENT` -- [met.no просит указывать осмысленный
+     User-Agent с контактами](https://developer.yr.no/doc/TermsOfService/)).
+   - `systemctl daemon-reload && systemctl enable --now phone-astatus phone-idle`
+5. **Опционально: статус других серверов**: экран Server status может
+   показывать статус *любого количества* других серверов, не только того,
+   где крутится `idle.py`. Для каждого такого сервера: разверните на нём
+   `remote-status/status-agent.py` (вместе с
+   `remote-status/status-agent.service.example`), настройте `STATUS_CHECKS`
+   нужными именно для этого сервера shell-командами (место на диске,
+   количество контейнеров, число VPN-пиров -- что угодно), сгенерируйте
+   случайный токен (`openssl rand -hex 32`), укажите его как `STATUS_TOKEN`
+   там же, закройте этот порт файрволом только для IP сервера с phone-idle,
+   и добавьте `Метка=http://адрес-сервера:8097/status?token=...` в
+   `REMOTE_STATUS` на стороне phone-idle (для нескольких серверов -- через
+   запятую).
+
+### Лицензия
+
+MIT -- см. [LICENSE](LICENSE).
