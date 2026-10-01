@@ -41,10 +41,12 @@ RATES_TTL = 60 * 60
 STATUS_TTL = 20
 UA = os.environ.get("MET_NO_USER_AGENT", "cisco-7941-messenger-bridge/1.0 (set MET_NO_USER_AGENT)")
 
-# Optional: status of a second host (e.g. a VPN server) shown on /status.
-UKNOW_HOST = os.environ.get("UKNOW_HOST", "")
-UKNOW_PORT = os.environ.get("UKNOW_PORT", "8097")
-UKNOW_TOKEN = os.environ.get("UKNOW_TOKEN", "")
+# Optional: status of any number of other servers, shown on /status.
+# Format: "Label1=http://host1:8097/status?token=xxx,Label2=http://host2:8097/status?token=yyy"
+# Each URL is expected to return JSON {"lines": ["some text", "more text"]}
+# -- see remote-status/status-agent.py for a ready-made generic agent that
+# serves exactly that shape from a list of shell commands you configure.
+REMOTE_STATUS = os.environ.get("REMOTE_STATUS", "")
 
 SYMBOLS = {"USD": "$", "EUR": "EUR", "CNY": "CNY", "GBP": "GBP"}
 DAYS_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -175,11 +177,32 @@ def fetch_local_status():
     return {"uptime_s": uptime_s, "phone_registered": registered}
 
 
-def fetch_remote_status():
-    if not UKNOW_HOST or not UKNOW_TOKEN:
-        return None
-    url = f"http://{UKNOW_HOST}:{UKNOW_PORT}/status?token={UKNOW_TOKEN}"
+def parse_remote_status_spec(spec):
+    servers = []
+    for part in spec.split(","):
+        part = part.strip()
+        if not part or "=" not in part:
+            continue
+        label, url = part.split("=", 1)
+        servers.append((label.strip(), url.strip()))
+    return servers
+
+
+def fetch_one_remote_status(url):
     return json.loads(http_get(url, timeout=5))
+
+
+def fetch_remote_statuses():
+    """Fetch every configured remote server's status, independently --
+    one unreachable server doesn't hide the others."""
+    results = []
+    for label, url in parse_remote_status_spec(REMOTE_STATUS):
+        try:
+            data = fetch_one_remote_status(url)
+            results.append((label, data.get("lines", []), None))
+        except Exception as e:
+            results.append((label, [], str(e)))
+    return results
 
 
 def tfmt(t):
@@ -311,16 +334,18 @@ def render_status(query=""):
         lines.append(f"  SIP phone: {'registered' if g['phone_registered'] else 'NOT registered'}")
     else:
         lines.append("Local host: no data")
-    lines.append("")
-    u = cached("remote_status", STATUS_TTL, fetch_remote_status)
-    if u:
-        lines.append("Remote host:")
-        lines.append(f"  uptime {fmt_uptime(u['uptime_s'])}")
-        lines.append(f"  xray: {u['xray_clients']} clients, {u['xray_active_tcp']} sessions now")
-        lines.append(f"  WireGuard: {u['wg_peers_online']}/{u['wg_peers_total']} online")
-        lines.append(f"  hysteria2: {'up' if u['hysteria_active'] else 'down'}")
-    else:
-        lines.append("Remote host: not configured / unreachable")
+
+    # Any number of other servers can be plugged in via REMOTE_STATUS --
+    # each one just needs to run remote-status/status-agent.py (or serve
+    # the same {"lines": [...]} JSON shape itself).
+    for label, status_lines, error in cached("remote_statuses", STATUS_TTL, fetch_remote_statuses) or []:
+        lines.append("")
+        lines.append(f"{label}:")
+        if error:
+            lines.append("  unreachable / no data")
+        else:
+            for line in status_lines:
+                lines.append(f"  {line}")
     return text_screen(title, lines, softkeys=[("Back", f"{BASE_URL}/services")])
 
 

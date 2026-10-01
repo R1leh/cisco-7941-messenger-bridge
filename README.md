@@ -21,7 +21,7 @@ Python HTTP service.
   - Currency converter -- pick a direction (e.g. RUB -> USD), type an
     amount on the keypad, get the converted value
   - Server status -- uptime / SIP registration state of the local host,
-    and (optionally) a second host's status
+    plus (optionally) status from any number of other servers you plug in
   - About the project
 
 ## How it works
@@ -36,7 +36,8 @@ Cisco 7941  --HTTP GET-->  phone-idle/idle.py  --parses/serves-->  CiscoIPPhoneT
                                +--> api.met.no (weather)
                                +--> cbr.ru (exchange rates)
                                +--> local Asterisk status file (written by astatus.py)
-                               +--> optional: a second host's /status endpoint (uknow/vpn-status.py)
+                               +--> optional: any number of other servers' /status
+                                    endpoints (remote-status/status-agent.py)
 ```
 
 ## Known limitations (tested on this hardware/firmware)
@@ -62,10 +63,13 @@ phone-idle/
                                   a status file idle.py can read unprivileged
   phone-idle.service.example     systemd unit template for idle.py
   phone-astatus.service.example  systemd unit template for astatus.py
-uknow/
-  vpn-status.py                  optional: status endpoint for a second host,
-                                  shown in the Server status screen
-  vpn-status.service.example     systemd unit template for it
+remote-status/
+  status-agent.py                 optional, generic: a small status endpoint
+                                   you can run on ANY server (VPN box, NAS,
+                                   another SIP box, whatever) -- runs a list
+                                   of shell commands you configure and
+                                   reports their output as display lines
+  status-agent.service.example    systemd unit template for it
 asterisk/
   pjsip.conf.example             minimal PJSIP config for one phone
   extensions.conf.example        minimal dialplan
@@ -103,12 +107,16 @@ to be committed; `.gitignore` already excludes the usual filenames.
      `TZ_NAME`, `MET_NO_USER_AGENT` -- [met.no asks for a descriptive User-Agent
      with contact info](https://developer.yr.no/doc/TermsOfService/)).
    - `systemctl daemon-reload && systemctl enable --now phone-astatus phone-idle`
-5. **Optional second-host status**: if you want the Server status screen to
-   also show a second host (e.g. a VPN box), deploy `uknow/vpn-status.py`
-   there with `uknow/vpn-status.service.example`, generate a random token
-   (`openssl rand -hex 32`), set it as `STATUS_TOKEN` there and as
-   `UKNOW_TOKEN`/`UKNOW_HOST`/`UKNOW_PORT` on the phone-idle side, and
-   firewall that port to the phone-idle host's IP only.
+5. **Optional: status from other servers**: the Server status screen can
+   show status from *any number* of other servers, not just the one running
+   `idle.py`. For each one: deploy `remote-status/status-agent.py` there
+   (with `remote-status/status-agent.service.example`), configure
+   `STATUS_CHECKS` with whatever shell commands make sense for that server
+   (disk space, container count, VPN peer count, anything), generate a
+   random token (`openssl rand -hex 32`), set it as `STATUS_TOKEN` there,
+   firewall that port to the phone-idle host's IP only, and add
+   `Label=http://that-host:8097/status?token=...` to `REMOTE_STATUS` on the
+   phone-idle side (comma-separate multiple servers).
 
 ## License
 

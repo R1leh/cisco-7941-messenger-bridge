@@ -16,11 +16,11 @@ Environment=LON=<longitude>
 Environment=TZ_NAME=<Area/City, e.g. Europe/Moscow>
 Environment=CURRENCIES=USD,EUR,CNY
 Environment=MET_NO_USER_AGENT=your-project-name/1.0 (you@example.com)
-# Optional: status of a second host, shown on the /status screen.
-# Leave unset to skip that section.
-#Environment=UKNOW_HOST=<remote host IP>
-#Environment=UKNOW_PORT=8097
-#Environment=UKNOW_TOKEN=<a long random token, shared with that host's status endpoint>
+# Optional: status of any number of other servers, shown on the /status
+# screen. "Label=URL" pairs separated by commas; each URL must serve
+# {"lines": [...]} -- see remote-status/status-agent.py for a ready-made
+# generic agent you can point this at. Leave unset to skip that section.
+#Environment=REMOTE_STATUS=VPN=http://<host1>:8097/status?token=<token1>,Backup=http://<host2>:8097/status?token=<token2>
 DynamicUser=yes
 ProtectSystem=strict
 ProtectHome=yes

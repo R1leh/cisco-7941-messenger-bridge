@@ -1,0 +1,22 @@
+[Unit]
+Description=Generic status agent for phone-idle's "Server status" screen
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/status-agent/status-agent.py
+Environment=STATUS_PORT=8097
+# Generate with: openssl rand -hex 32
+Environment=STATUS_TOKEN=<REPLACE_WITH_A_LONG_RANDOM_TOKEN>
+# "Label=shell command" pairs, separated by ";". Each command's first
+# output line is shown as "Label: <output>". Report whatever is useful for
+# THIS server -- disk space, container counts, a VPN peer count, anything.
+Environment=STATUS_CHECKS=Disk=df -h / | awk 'NR==2{print $4" free"}'
+Restart=on-failure
+RestartSec=5
+# Run as a dedicated low-privilege user able to execute your STATUS_CHECKS
+# commands; avoid running this as root unless a check genuinely needs it.
+User=nobody
+
+[Install]
+WantedBy=multi-user.target
